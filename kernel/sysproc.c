@@ -98,6 +98,17 @@ sys_kill(void)
   return kkill(pid);
 }
 
+// trace(mask): print every later syscall whose bit is set in mask.
+uint64
+sys_trace(void)
+{
+  int mask;
+
+  argint(0, &mask);
+  myproc()->tracemask = mask;
+  return 0;
+}
+
 // return how many clock tick interrupts have occurred
 // since start.
 uint64

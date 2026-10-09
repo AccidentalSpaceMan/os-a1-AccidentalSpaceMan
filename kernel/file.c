@@ -25,6 +25,21 @@ fileinit(void)
   initlock(&ftable.lock, "ftable");
 }
 
+// Return the number of file table entries in use (ref > 0).
+uint64
+nopenfiles(void)
+{
+  struct file *f;
+  uint64 n = 0;
+
+  acquire(&ftable.lock);
+  for (f = ftable.file; f < ftable.file + NFILE; f++)
+    if (f->ref > 0)
+      n++;
+  release(&ftable.lock);
+  return n;
+}
+
 // Allocate a file structure.
 struct file *
 filealloc(void)

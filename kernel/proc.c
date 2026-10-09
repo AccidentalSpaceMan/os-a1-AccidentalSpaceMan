@@ -167,6 +167,7 @@ freeproc(struct proc *p)
   p->chan = 0;
   p->killed = 0;
   p->xstate = 0;
+  p->tracemask = 0;
   p->state = UNUSED;
 }
 
@@ -289,6 +290,9 @@ kfork(void)
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 
+  // The child inherits the parent's trace mask.
+  np->tracemask = p->tracemask;
+
   pid = np->pid;
 
   release(&np->lock);
@@ -302,6 +306,22 @@ kfork(void)
   release(&np->lock);
 
   return pid;
+}
+
+// Return the number of processes whose state is not UNUSED.
+uint64
+nprocs(void)
+{
+  struct proc *p;
+  uint64 n = 0;
+
+  for (p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if (p->state != UNUSED)
+      n++;
+    release(&p->lock);
+  }
+  return n;
 }
 
 // Pass p's abandoned children to init.
