@@ -4,6 +4,7 @@
 #include "riscv.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "uproc.h"
 #include "defs.h"
 
 struct cpu cpus[NCPU];
@@ -320,6 +321,45 @@ nprocs(void)
     if (p->state != UNUSED)
       n++;
     release(&p->lock);
+  }
+  return n;
+}
+
+// Copy a struct uproc for each process that is not UNUSED to the user
+// array at addr, in table order, stopping after max entries.
+// Returns the number of entries copied, or -1 if a copy fails.
+int
+getprocs(uint64 addr, int max)
+{
+  struct proc *p;
+  struct proc *me = myproc();
+  struct uproc u;
+  int n = 0, used;
+
+  for (p = proc; p < &proc[NPROC] && n < max; p++) {
+    // wait_lock protects p->parent and keeps the parent from being
+    // freed while we read its pid. Take it before p->lock, the same
+    // order as kexit() and kwait().
+    acquire(&wait_lock);
+    acquire(&p->lock);
+    used = p->state != UNUSED;
+    if (used) {
+      u.pid = p->pid;
+      u.ppid = p->parent ? p->parent->pid : 0;
+      u.state = p->state;
+      u.sz = p->sz;
+      safestrcpy(u.name, p->name, sizeof(u.name));
+    }
+    release(&p->lock);
+    release(&wait_lock);
+
+    // copyout without holding any spinlocks.
+    if (used) {
+      if (copyout(me->pagetable, me->sz, addr + n * sizeof(u), (char *)&u,
+                  sizeof(u)) < 0)
+        return -1;
+      n++;
+    }
   }
   return n;
 }

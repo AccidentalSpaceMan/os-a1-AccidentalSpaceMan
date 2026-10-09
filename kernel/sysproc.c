@@ -6,6 +6,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "vm.h"
+#include "sysinfo.h"
 
 uint64
 sys_exit(void)
@@ -107,6 +108,37 @@ sys_trace(void)
   argint(0, &mask);
   myproc()->tracemask = mask;
   return 0;
+}
+
+// sysinfo(info): fill in a struct sysinfo at user address info.
+uint64
+sys_sysinfo(void)
+{
+  uint64 addr;
+  struct sysinfo info;
+  struct proc *p = myproc();
+
+  argaddr(0, &addr);
+  info.freemem = kfreemem();
+  info.nproc = nprocs();
+  info.nopenfile = nopenfiles();
+  if (copyout(p->pagetable, p->sz, addr, (char *)&info, sizeof(info)) < 0)
+    return -1;
+  return 0;
+}
+
+// getprocs(buf, max): copy up to max struct uprocs to user array buf.
+uint64
+sys_getprocs(void)
+{
+  uint64 addr;
+  int max;
+
+  argaddr(0, &addr);
+  argint(1, &max);
+  if (max < 0)
+    return -1;
+  return getprocs(addr, max);
 }
 
 // return how many clock tick interrupts have occurred
